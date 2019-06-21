@@ -1,0 +1,120 @@
+version: "3.7"
+
+services:
+  consul-leader:
+    image: consul:1.5
+    command: agent -server -client=0.0.0.0 -bootstrap -ui
+    volumes:
+      - consul-data-leader:/consul/data
+    environment:
+      - CONSUL_BIND_INTERFACE=eth0
+      - 'CONSUL_LOCAL_CONFIG={"leave_on_terminate": true}'
+    networks:
+      - traefik-consul
+    deploy:
+      labels:
+        - traefik.frontend.rule=Host:consul.${DOMAIN:-labs.cometari.com}
+        - traefik.backend=consul-leader
+        - traefik.enable=true
+        - traefik.port=8500
+        - traefik.docker.network=proxy
+        - traefik.frontend.auth.basic.users=admin:$$2y$$05$$1OX5jZ1Kpm/iVKE8tgUhu.STmPkgi0lLxVeP5yEcRioFdV4mcgdTu
+
+  consul-replica:
+    image: consul:1.5
+    command: agent -server -client=0.0.0.0 -retry-join="consul-leader"
+    volumes:
+      - consul-data-replica:/consul/data
+    environment:
+      - CONSUL_BIND_INTERFACE=eth0
+      - 'CONSUL_LOCAL_CONFIG={"leave_on_terminate": true}'
+    networks:
+      - traefik-consul
+    deploy:
+      replicas: ${CONSUL_REPLICAS:-3}
+      placement:
+        preferences:
+          - spread: node.id # Data ceneter, 'spread=node.labels.datacenter, datacenter=us-west, 
+
+  traefik:
+    image: traefik:1.7
+    command:
+      - --api
+      - --consul
+      - --consul.endpoint=consul-leader:8500
+      - --docker
+      - --docker.swarmmode
+      - --docker.watch
+      - --docker.exposedbydefault=false
+      - --docker.swarmModeRefreshSeconds=5
+      - --entrypoints=Name:http Address::80 Redirect.EntryPoint:https
+      - --entrypoints=Name:https Address::443 TLS
+      - --defaultentrypoints=http,https
+      - --metrics
+      - --metrics.prometheus
+      - --logLevel=INFO
+      - --accessLog
+      - --acme
+      - --acme.email=kuba@cometari.com
+      - --acme.storage=traefik/acme/account
+      - --acme.entryPoint=https
+      - --acme.tlsChallenge=true        # Uses TLS Challenge. Thanks Damien Duportal / Traefik
+      - --acme.onhostrule=true
+      - --acme.acmelogging=true
+    networks:
+      - traefik-consul
+      - proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    deploy:
+      replicas: ${TRAEFIK_REPLICAS:-2}
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+        preferences:
+          - spread: node.id
+      labels:
+        - traefik.frontend.rule=Host:traefik.${DOMAIN:-labs.cometari.com}
+        - traefik.enable=true
+        - traefik.port=8080
+        - traefik.docker.network=proxy
+        - traefik.frontend.auth.basic.users=admin:$$2y$$05$$1OX5jZ1Kpm/iVKE8tgUhu.STmPkgi0lLxVeP5yEcRioFdV4mcgdTu
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  visualizer:
+    image: dockersamples/visualizer
+    networks:
+      - proxy
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      labels:
+        - traefik.frontend.rule=Host:viz.${DOMAIN:-labs.cometari.com}
+        - traefik.enable=true
+        - traefik.port=8080
+        - traefik.docker.network=proxy
+        - traefik.tags=${TRAEFIK_PUBLIC_TAG:-visualizer}
+        - traefik.frontend.auth.basic.users=admin:$$2y$$05$$1OX5jZ1Kpm/iVKE8tgUhu.STmPkgi0lLxVeP5yEcRioFdV4mcgdTu
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  consul-data-leader:
+  consul-data-replica:
+
+networks:
+  proxy:
+    driver: overlay
+    name: proxy
+    attachable: true
+  traefik-consul:
+    driver: overlay
+    attachable: true
+    name: traefik-consul
+    driver_opts:
+      encrypted: "true"
