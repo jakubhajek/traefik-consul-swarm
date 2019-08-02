@@ -16,8 +16,8 @@ The stack files have to be deployed in following order
 1.  Consul
 ```docker stack deploy -c stack-consul.yml consul --with-registry-auth```
 
-2. Application Stack
-```docker stack deploy -c stack-app.yml app --with-registry-auth```
+2. Traefik stack
+```docker stack deploy -c stack-traefik.yml  traefik --with-registry-auth```
 
-3. Traefik stack
-```docker stack deploy -c stack-traefik.yml --with-registry-auth```
+3. Application Stack
+```docker stack deploy -c stack-app.yml app --with-registry-auth```

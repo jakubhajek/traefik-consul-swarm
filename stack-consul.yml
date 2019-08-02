@@ -6,7 +6,7 @@ services:
     image: consul:1.5
     command: agent -server -client=0.0.0.0 -bootstrap -ui
     volumes:
-      - consul-data-leader-7:/consul/data
+      - consul-data-leader-1:/consul/data
     environment:
       - CONSUL_BIND_INTERFACE=eth0
       - 'CONSUL_LOCAL_CONFIG={"leave_on_terminate": true}'
@@ -25,7 +25,7 @@ services:
     image: consul:1.5
     command: agent -server -client=0.0.0.0 -retry-join="consul-leader"
     volumes:
-      - consul-data-replica-7:/consul/data
+      - consul-data-replica-1:/consul/data
     environment:
       - CONSUL_BIND_INTERFACE=eth0
       - 'CONSUL_LOCAL_CONFIG={"leave_on_terminate": true}'
@@ -40,8 +40,8 @@ services:
         - traefik.enable=false
 
 volumes:
-  consul-data-leader-7:
-  consul-data-replica-7:
+  consul-data-leader-1:
+  consul-data-replica-1:
 
 networks: 
   traefik-consul:

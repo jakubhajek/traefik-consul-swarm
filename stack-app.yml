@@ -13,6 +13,12 @@ networks:
 services:
   backend:
     image: jakubhajek/nodejs-backend:latest
+    healthcheck: 
+      test: wget --quiet --tries=1 --spider http://localhost:3000/ || exit 1
+      interval: 1s
+      timeout: 5s
+      retries: 1
+      start_period: 5s
     networks:
       - app
     deploy:
@@ -61,7 +67,7 @@ services:
         - traefik.docker.network=proxy
         - traefik.port=80
         - traefik.docker.tags=${TRAEFIK_PUBLIC_TAG:-nginx-frontend}
-        - traefik.frontend.rule=Host:node-app.${DOMAIN:-labs.cometari.com}
+        - traefik.frontend.rule=Host:node-app.${DOMAIN:-labs.cometari.eu}
         - traefik.backend.healthcheck.path=/healthcheck
         - traefik.backend.healthcheck.interval=1s
       resources:
@@ -70,5 +76,5 @@ services:
 
 configs:
   nginx_config:
-    name: nginx-config-${NGINX_CONFIG:-3}
+    name: nginx-config-${NGINX_CONFIG:-1}
     file: nginx.conf
